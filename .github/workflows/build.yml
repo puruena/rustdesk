@@ -1,0 +1,19 @@
+name: Build RustDesk Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build
+        run: cargo build --release
+      
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk.exe
+          path: target/release/rustdesk.exe

@@ -1,35 +1,60 @@
-name: Build RustDesk Windows
-
+name: RustDesk Custom Build (Flutter)
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: windows-latest
-    
+  build-linux:
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-pc-windows-msvc
-          override: true
-      
-      - name: Install Flutter
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-dev build-essential curl git libasound2-dev \
+          libcap-dev libcmake-util-dev libdbus-1-dev libgstreamer-plugins-base1.0-dev \
+          libgstreamer1.0-dev libgtk-3-dev liblzma-dev libpam0g-dev libpango1.0-dev \
+          libpulse-dev libva-dev libvdpau-dev libvpx-dev libx11-dev libxcb-randr0-dev \
+          libxcb-shape0-dev libxcb-xfixes0-dev libxdo-dev libxfixes-dev libxi-dev \
+          libxkbcommon-dev libxrandr-dev libxtst-dev llvm-dev nasm ninja-build \
+          unzip wget yasm libclang-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
-      
-      - name: Build RustDesk
-        run: cargo build --release --target x86_64-pc-windows-msvc
-      
-      - name: Upload executable
+          channel: 'stable'
+
+      - name: vcpkg build (Librerías C++)
+        run: |
+          if [ ! -d "vcpkg" ]; then
+            git clone https://github.com/microsoft/vcpkg
+            ./vcpkg/bootstrap-vcpkg.sh
+          fi
+          # RustDesk necesita estas específicas para el manejo de video/audio
+          ./vcpkg/vcpkg install libvpx libyuv opus aom
+          echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
+
+      - name: Prepare RustDesk Bridge
+        run: |
+          cargo install flutter_rust_bridge_codegen --version 1.80.0 # Verifica versión compatible
+          flutter pub get
+          # Este comando genera el enlace entre tus cambios en Rust y la UI de Flutter
+          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart
+
+      - name: Build Flutter Linux
+        run: |
+          # Limpieza para asegurar que tome los nuevos IDs
+          flutter clean
+          flutter build linux --release
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rustdesk-windows
-          path: target/x86_64-pc-windows-msvc/release/rustdesk.exe
+          name: RustDesk-Custom-Linux
+          path: build/linux/x64/release/bundle/

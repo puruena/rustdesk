@@ -1,8 +1,7 @@
-
 name: Build RustDesk Modified (Flutter Version)
 
 on:
-  workflow_dispatch: # Esto permite que le des al botón "Run Workflow" manualmente
+  workflow_dispatch: 
 
 permissions:
   contents: write
@@ -11,7 +10,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-22.04
     
-    # Solución para las advertencias de Node.js deprecado
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
@@ -30,7 +28,7 @@ jobs:
           libpulse-dev libva-dev libvdpau-dev libvpx-dev libx11-dev libxcb-randr0-dev \
           libxcb-shape0-dev libxcb-xfixes0-dev libxdo-dev libxfixes-dev libxi-dev \
           libxkbcommon-dev libxrandr-dev libxtst-dev llvm-dev nasm ninja-build \
-          unzip wget yasm libclang-dev
+          unzip wget yasm libclang-dev libunwind-dev
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,7 +39,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # Nota: RustDesk suele requerir Flutter 3.16 o superior
 
       - name: Install vcpkg and Libraries
         run: |
@@ -54,16 +51,11 @@ jobs:
 
       - name: Prepare Bridge & Dependencies
         run: |
-          # Instalamos el generador de código para el puente entre Rust y Flutter
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           export PATH="$HOME/.cargo/bin:$PATH"
-          
-          # Descargamos dependencias de Dart
           flutter pub get
-          
-          # Generamos los archivos del puente (Bridge)
-          # Si tu archivo principal de rust no está en src/main.rs, ajusta esta ruta:
-          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Saltando paso de bridge si no es necesario"
+          # Generamos el puente. Si falla por ruta, se reportará aquí:
+          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge ya generado o no requerido"
 
       - name: Build Flutter App (Release)
         run: |

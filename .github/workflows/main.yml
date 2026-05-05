@@ -1,0 +1,38 @@
+name: Build RustDesk Linux
+on: 
+  workflow_dispatch: # Permite ejecutarlo manualmente
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ gcc git curl wget nasm yasm libgtk-3-dev libxcb-randr0-dev libxdo-dev \
+          libxfixes-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libpulse-dev libdbus-1-dev \
+          libvpx-dev libopus-dev libaom-dev libwayland-dev libclang-dev build-essential
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg
+          ./vcpkg/bootstrap-vcpkg.sh
+          echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
+
+      - name: Build RustDesk
+        run: |
+          # Aquí puedes añadir comandos específicos si tu modificación 
+          # requiere pasos extra antes de compilar
+          cargo build --release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-linux-binary
+          path: target/release/rustdesk

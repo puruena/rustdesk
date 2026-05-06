@@ -29,7 +29,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Fix vcpkg and Manifest Mode
+      - name: Fix vcpkg
         run: |
           rm -f vcpkg.json
           if [ ! -d "vcpkg" ]; then
@@ -40,22 +40,22 @@ jobs:
 
       - name: Install and Run flutter_rust_bridge_codegen
         run: |
-          # Instalamos la versión específica
+          # Instalamos la herramienta
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           
           mkdir -p ./lib
           
-          # Ajuste de comandos según los logs de error previos
+          # Comando ultra-compatible: quitamos los flags que dan error
+          # y dejamos solo la entrada, salida y el skip de chequeo.
           $HOME/.cargo/bin/flutter_rust_bridge_codegen \
             --rust-input ./libs/hbb_common/src/lib.rs \
             --dart-output ./lib/generated_bridge.dart \
-            --skip-deps-check \
-            --no-specialize-opaque
+            --skip-deps-check
         working-directory: ${{ github.workspace }}
 
       - name: Build Rust Core
         run: |
-          # Este es el paso largo (aprox 20-30 min)
+          # Si el paso anterior da un WARN pero no ERROR, este paso comenzará.
           cargo build --release
         working-directory: ${{ github.workspace }}
 

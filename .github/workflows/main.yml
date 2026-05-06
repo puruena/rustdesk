@@ -1,4 +1,4 @@
-name: RustDesk Build Fix 2026
+name: RustDesk Build 2026 Final
 
 on:
   workflow_dispatch:
@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+      # Aceleramos la compilación de Rust
+      CARGO_NET_RETRY: 10
+      RUST_BACKTRACE: 1
 
     steps:
       - name: Checkout Code
@@ -33,29 +36,28 @@ jobs:
         run: |
           rm -f vcpkg.json
           if [ ! -d "vcpkg" ]; then
-            git clone https://github.com/microsoft/vcpkg.git
+            git clone --depth=1 https://github.com/microsoft/vcpkg.git
           fi
           ./vcpkg/bootstrap-vcpkg.sh
         working-directory: ${{ github.workspace }}
 
-      - name: Install and Run flutter_rust_bridge_codegen
+      - name: Install and Run Bridge Codegen
         run: |
           # Instalamos la herramienta
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           
           mkdir -p ./lib
           
-          # Comando ultra-compatible: quitamos los flags que dan error
-          # y dejamos solo la entrada, salida y el skip de chequeo.
+          # Comando simplificado al máximo para evitar errores de flags
           $HOME/.cargo/bin/flutter_rust_bridge_codegen \
             --rust-input ./libs/hbb_common/src/lib.rs \
             --dart-output ./lib/generated_bridge.dart \
             --skip-deps-check
         working-directory: ${{ github.workspace }}
 
-      - name: Build Rust Core
+      - name: Build Rust Core (Release)
         run: |
-          # Si el paso anterior da un WARN pero no ERROR, este paso comenzará.
+          # Este paso tardará entre 15 y 30 minutos
           cargo build --release
         working-directory: ${{ github.workspace }}
 

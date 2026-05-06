@@ -1,3 +1,4 @@
+
 name: RustDesk Build Fix 2026
 
 on:
@@ -31,22 +32,32 @@ jobs:
 
       - name: Fix vcpkg and Manifest Mode
         run: |
+          # Eliminamos vcpkg.json para evitar conflictos de modo manifiesto
           rm -f vcpkg.json
-          git clone https://github.com/microsoft/vcpkg.git
+          if [ ! -d "vcpkg" ]; then
+            git clone https://github.com/microsoft/vcpkg.git
+          fi
           ./vcpkg/bootstrap-vcpkg.sh
         working-directory: ${{ github.workspace }}
 
       - name: Install and Run flutter_rust_bridge_codegen
         run: |
+          # Instalamos la versión específica necesaria
           cargo install flutter_rust_bridge_codegen --version 1.80.0
+          
+          # Aseguramos que la carpeta de salida para Dart existe
           mkdir -p ./lib
+          
+          # Ejecutamos el generador con --skip-deps para evitar errores con tipos complejos de tokio
           $HOME/.cargo/bin/flutter_rust_bridge_codegen \
             --rust-input ./libs/hbb_common/src/lib.rs \
-            --dart-output ./lib/generated_bridge.dart
+            --dart-output ./lib/generated_bridge.dart \
+            --skip-deps
         working-directory: ${{ github.workspace }}
 
       - name: Build Rust Core
         run: |
+          # Compilación principal (este paso es el más lento)
           cargo build --release
         working-directory: ${{ github.workspace }}
 

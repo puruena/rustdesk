@@ -1,6 +1,7 @@
-name: RustDesk Custom Build 2026
+name: RustDesk Build Fix 2026
+
 on:
-  workflow_dispatch: # Esto permite ejecutarlo a mano desde la pestaña Actions
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -10,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
     
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      # Eliminamos la variable FORCE_JAVASCRIPT para evitar el aviso de Node
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
@@ -40,14 +41,14 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install vcpkg (Fix Manifest Error)
+      - name: Install vcpkg (Anti-Manifest Mode Fix)
         run: |
           if [ ! -d "vcpkg" ]; then
             git clone https://github.com/microsoft/vcpkg
             ./vcpkg/bootstrap-vcpkg.sh
           fi
           
-          # ELIMINAMOS el vcpkg.json para que no bloquee la instalación manual
+          # ELIMINAMOS el vcpkg.json para evitar el error de "Manifest Mode"
           rm -f vcpkg.json
           
           echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
@@ -58,7 +59,6 @@ jobs:
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           export PATH="$HOME/.cargo/bin:$PATH"
           flutter pub get
-          # Genera la conexión entre Rust y la UI
           flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge listo"
 
       - name: Build Flutter App

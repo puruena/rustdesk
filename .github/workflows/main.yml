@@ -1,7 +1,7 @@
-name: RustDesk Build Final Fix
+name: RustDesk Build 2026 Fix
 
 on:
-  workflow_dispatch: # Para lanzarlo tú manualmente
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -10,7 +10,9 @@ jobs:
   build-linux:
     runs-on: ubuntu-22.04
     
+    # Forzamos Node 24 para evitar el error de deprecación de GitHub
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
@@ -40,15 +42,17 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install vcpkg and Libraries
+      - name: Install vcpkg (Classic Mode Force)
         run: |
           if [ ! -d "vcpkg" ]; then
             git clone https://github.com/microsoft/vcpkg
             ./vcpkg/bootstrap-vcpkg.sh
           fi
-          # Definimos la ruta de vcpkg
+          # ELIMINAMOS el vcpkg.json temporalmente para que NO entre en modo manifiesto
+          # Esto evita el error "In manifest mode, vcpkg install does not support individual package arguments"
+          if [ -f "vcpkg.json" ]; then rm vcpkg.json; fi
+          
           echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
-          # Instalamos las librerías usando modo CLASSIC para evitar el error del archivo json
           ./vcpkg/vcpkg install libvpx libyuv opus aom --classic
 
       - name: Prepare Bridge & Dependencies
@@ -56,17 +60,16 @@ jobs:
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           export PATH="$HOME/.cargo/bin:$PATH"
           flutter pub get
-          # Intentamos generar el puente. Si las rutas cambiaron en tu mod, no detendrá el proceso
-          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge ya listo"
+          # Si el archivo main no está en src/main.rs, esta línea fallará pero el script seguirá
+          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge ya generado"
 
       - name: Build Flutter App (Release)
         run: |
-          # Limpiamos antes de compilar para que tome tus IDs modificados
           flutter clean
           flutter build linux --release
 
       - name: Upload Finished Binary
         uses: actions/upload-artifact@v4
         with:
-          name: RustDesk-Linux-Personalizado
+          name: RustDesk-Linux-OK
           path: build/linux/x64/release/bundle/

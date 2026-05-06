@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -31,7 +31,6 @@ jobs:
 
       - name: Fix vcpkg and Manifest Mode
         run: |
-          # Esto evita el error de "vcpkg.json" que detuvo la compilación antes
           rm -f vcpkg.json
           git clone https://github.com/microsoft/vcpkg.git
           ./vcpkg/bootstrap-vcpkg.sh
@@ -39,13 +38,8 @@ jobs:
 
       - name: Install and Run flutter_rust_bridge_codegen
         run: |
-          # Instalamos la versión específica compatible
           cargo install flutter_rust_bridge_codegen --version 1.80.0
-          
-          # Creamos la carpeta lib si no existe para evitar errores de salida
           mkdir -p ./lib
-          
-          # Ejecutamos el generador usando la ruta absoluta de cargo
           $HOME/.cargo/bin/flutter_rust_bridge_codegen \
             --rust-input ./libs/hbb_common/src/lib.rs \
             --dart-output ./lib/generated_bridge.dart
@@ -53,12 +47,11 @@ jobs:
 
       - name: Build Rust Core
         run: |
-          # Compilación del núcleo de RustDesk
           cargo build --release
         working-directory: ${{ github.workspace }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rustdesk-linux-binary
           path: target/release/rustdesk

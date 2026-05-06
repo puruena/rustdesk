@@ -3,20 +3,15 @@ name: RustDesk Build Fix 2026
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
-    
     env:
-      # Eliminamos la variable FORCE_JAVASCRIPT para evitar el aviso de Node
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -24,50 +19,46 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils-dev build-essential curl git libasound2-dev \
-          libcap-dev cmake pkg-config libdbus-1-dev libgstreamer-plugins-base1.0-dev \
-          libgstreamer1.0-dev libgtk-3-dev liblzma-dev libpam0g-dev libpango1.0-dev \
-          libpulse-dev libva-dev libvdpau-dev libvpx-dev libx11-dev libxcb-randr0-dev \
-          libxcb-shape0-dev libxcb-xfixes0-dev libxdo-dev libxfixes-dev libxi-dev \
-          libxkbcommon-dev libxrandr-dev libxtst-dev llvm-dev nasm ninja-build \
-          unzip wget yasm libclang-dev libunwind-dev
+            libcap-dev cmake pkg-config libdbus-1-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer1.0-dev libgtk-3-dev liblzma-dev libpam0g-dev libpango1.0-dev \
+            libpulse-dev libva-dev libvdpau-dev libvpx-dev libx11-dev libxcb-randr0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libxdo-dev libxfixes-dev libxi-dev \
+            libxkbcommon-dev libxrandr-dev libxtst-dev llvm-dev nasm ninja-build \
+            unzip wget yasm libclang-dev libunwind-dev
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Install vcpkg (Anti-Manifest Mode Fix)
+      - name: Fix vcpkg and Manifest Mode
         run: |
-          if [ ! -d "vcpkg" ]; then
-            git clone https://github.com/microsoft/vcpkg
-            ./vcpkg/bootstrap-vcpkg.sh
-          fi
-          
-          # ELIMINAMOS el vcpkg.json para evitar el error de "Manifest Mode"
+          # Esto evita el error de "vcpkg.json" que detuvo la compilación antes
           rm -f vcpkg.json
-          
-          echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
-          ./vcpkg/vcpkg install libvpx libyuv opus aom --classic
+          git clone https://github.com/microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.sh
+        working-directory: ${{ github.workspace }}
 
-      - name: Prepare Bridge & Dependencies
+      - name: Install and Run flutter_rust_bridge_codegen
         run: |
+          # Instalamos la versión específica compatible
           cargo install flutter_rust_bridge_codegen --version 1.80.0
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flutter pub get
-          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge listo"
+          
+          # Creamos la carpeta lib si no existe para evitar errores de salida
+          mkdir -p ./lib
+          
+          # Ejecutamos el generador usando la ruta absoluta de cargo
+          $HOME/.cargo/bin/flutter_rust_bridge_codegen \
+            --rust-input ./libs/hbb_common/src/lib.rs \
+            --dart-output ./lib/generated_bridge.dart
+        working-directory: ${{ github.workspace }}
 
-      - name: Build Flutter App
+      - name: Build Rust Core
         run: |
-          flutter clean
-          flutter build linux --release
+          # Compilación del núcleo de RustDesk
+          cargo build --release
+        working-directory: ${{ github.workspace }}
 
-      - name: Upload Finished Binary
-        uses: actions/upload-artifact@v4
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: RustDesk-Linux-Personalizado
-          path: build/linux/x64/release/bundle/
+          name: rustdesk-linux-binary
+          path: target/release/rustdesk

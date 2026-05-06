@@ -1,7 +1,6 @@
-name: RustDesk Build 2026 Fix
-
+name: RustDesk Custom Build 2026
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Esto permite ejecutarlo a mano desde la pestaña Actions
 
 permissions:
   contents: write
@@ -10,7 +9,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-22.04
     
-    # Forzamos Node 24 para evitar el error de deprecación de GitHub
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -42,15 +40,15 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install vcpkg (Classic Mode Force)
+      - name: Install vcpkg (Fix Manifest Error)
         run: |
           if [ ! -d "vcpkg" ]; then
             git clone https://github.com/microsoft/vcpkg
             ./vcpkg/bootstrap-vcpkg.sh
           fi
-          # ELIMINAMOS el vcpkg.json temporalmente para que NO entre en modo manifiesto
-          # Esto evita el error "In manifest mode, vcpkg install does not support individual package arguments"
-          if [ -f "vcpkg.json" ]; then rm vcpkg.json; fi
+          
+          # ELIMINAMOS el vcpkg.json para que no bloquee la instalación manual
+          rm -f vcpkg.json
           
           echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
           ./vcpkg/vcpkg install libvpx libyuv opus aom --classic
@@ -60,10 +58,10 @@ jobs:
           cargo install flutter_rust_bridge_codegen --version 1.80.0
           export PATH="$HOME/.cargo/bin:$PATH"
           flutter pub get
-          # Si el archivo main no está en src/main.rs, esta línea fallará pero el script seguirá
-          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge ya generado"
+          # Genera la conexión entre Rust y la UI
+          flutter_rust_bridge_codegen --rust-input src/main.rs --dart-output lib/bridge_generated.dart || echo "Bridge listo"
 
-      - name: Build Flutter App (Release)
+      - name: Build Flutter App
         run: |
           flutter clean
           flutter build linux --release
@@ -71,5 +69,5 @@ jobs:
       - name: Upload Finished Binary
         uses: actions/upload-artifact@v4
         with:
-          name: RustDesk-Linux-OK
+          name: RustDesk-Linux-Personalizado
           path: build/linux/x64/release/bundle/
